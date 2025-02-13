@@ -1,14 +1,15 @@
 # Scryfall_Proxy_Prepper
 Requirements:
-Python 3
-Pip
+Python 3, Pip
 
 Installation:
 Run install requirements.bat
 
 Running:
 python ./scryfall_proxy_prepper.py
+
 OR
+
 run.bat
 
 Notes:
