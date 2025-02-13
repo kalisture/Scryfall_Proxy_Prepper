@@ -23,6 +23,8 @@ Defualt export format for best results. Set code and Collection number mandatory
 Notes:
 By default will download images, taking into account printings, amount of copies.
 
+Deck will never overwrite, will create a new folder.
+
 Double sided cards will be stored seperately.
 
 x CosmoPrint Ready - Adds a 3+mm bleed, and converts to PDF at the end.
