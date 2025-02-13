@@ -13,6 +13,13 @@ OR
 run.bat
 
 -----------------------------------------------------------------------------------------------------
+Usage:
+Defualt export format for best results. Set code and Collection number mandatory. e.g.:
+
+1 Cut Down (DMU) 89
+1 Sheoldred, the Apocalypse (DMU) 107
+
+-----------------------------------------------------------------------------------------------------
 Notes:
 By default will download images, taking into account printings, amount of copies.
 
