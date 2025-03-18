@@ -1,4 +1,3 @@
-import json
 from time import sleep
 import requests
 import tkinter as tk
@@ -66,19 +65,20 @@ def match_double(card_info):
     isDouble = card_info.find('//')
     if isDouble != -1:
         match = re.match(r'.*\((\w+)\)\s+(\w+-*\w*)', card_info)
-        api_url = f"https://api.scryfall.com/cards/{match.group(1)}/{match.group(2)}"
-        try:
-            response = requests.get(api_url)
-            if response.status_code == 200:
-                data = response.json()
-                sleep(0.1)
-                if data['layout'] == 'transform':
-                    return True
-                return False
-        except Exception as e:
-            print(f"Error checking double face for {card_info}: {e}")
-            errored = True
-        return False
+        if match:
+            api_url = f"https://api.scryfall.com/cards/{match.group(1)}/{match.group(2)}"
+            try:
+                response = requests.get(api_url)
+                if response.status_code == 200:
+                    data = response.json()
+                    sleep(0.1)
+                    if data['layout'] in ['transform', 'modal_dfc']:
+                        return True
+                    return False
+            except Exception as e:
+                print(f"Error checking double face for {card_info}: {e}")
+                errored = True
+            return False
     return False
 
 def download_image(card_info, save_dir, isBleed, face):
