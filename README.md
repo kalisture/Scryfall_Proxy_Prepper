@@ -14,9 +14,18 @@ run.bat
 
 -----------------------------------------------------------------------------------------------------
 Usage:
+Now supporting Deck URLs!
+
+Most popular sites should work, if you would like to use Moxfield in particular, you will need to contact me.
+
+If you add tokens to a default location (Mainboard, sideboard - NOT Maybeboard, Tokens & Extras), they WILL get included
+
+- I've only seen this in Scryfall and Archidekt, cannot do this in moxfield
+
 Defualt export format for best results. Set code and Collection number mandatory. e.g.:
 
 1 Cut Down (DMU) 89
+
 1 Sheoldred, the Apocalypse (DMU) 107
 
 -----------------------------------------------------------------------------------------------------
@@ -27,7 +36,7 @@ Deck will never overwrite, will create a new folder.
 
 Double sided cards will be stored seperately.
 
-x CosmoPrint Ready - Adds a 3+mm bleed, and converts to PDF at the end.
+[x] CosmoPrint Ready - Adds a 3+mm bleed, and converts to PDF at the end.
 
 When providing to me, please specify what card back you want (None, Default, Custom (Provided))
 
@@ -35,4 +44,4 @@ When providing to me, please specify what card back you want (None, Default, Cus
 
 custom_pdf.py lets you turn downloaded images (normal), adds the bleed and creates a pdf ready to proxy.
 
-Place images in the in folder
+Place images in the in folder, then run the program
