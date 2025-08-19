@@ -1,6 +1,8 @@
 from time import sleep
+import httpx
 import requests
 import tkinter as tk
+import mtg_parser
 from tkinter import *
 from tkinter import ttk
 from tkinter import scrolledtext
@@ -13,7 +15,7 @@ from io import BytesIO
 
 #GUI setup
 root = tk.Tk()
-root.geometry("550x550")
+root.geometry("550x600")
 root.title("Scryfall Proxy Prepper")
 
 frame = tk.Frame(root)
@@ -28,23 +30,29 @@ deckNameBox.grid(row=0, column=1, padx=10, pady=10, sticky=tk.W)
 deckNameBox.insert(0, "Commander Deck")
 
 deckListLabel = tk.Label(root, text="Deck List")
-deckListLabel.grid(row=1, column=0, padx=10, pady=10, sticky=tk.W+tk.N)
+deckListLabel.grid(row=2, column=0, padx=10, pady=10, sticky=tk.W+tk.N)
 
 deckListBox = scrolledtext.ScrolledText(root, height=15, width=45)
-deckListBox.grid(row=1, column=1, padx=10, pady=10, sticky=tk.W)
+deckListBox.grid(row=2, column=1, padx=10, pady=10, sticky=tk.W)
+
+deckURLLabel = tk.Label(root, text="Deck Url (Preferred)")
+deckURLLabel.grid(row=1, column=0, padx=10, pady=10, sticky=tk.W+tk.N)
+
+deckURLBox = tk.Entry(root, width=50)
+deckURLBox.grid(row=1, column=1, padx=10, pady=10, sticky=tk.W)
 
 isBleed = IntVar()
 c1 = tk.Checkbutton(root, text='CosmoPrint Ready', variable=isBleed)
-c1.grid(row=2, column=0, pady=10, padx=10, sticky=tk.W)
+c1.grid(row=3, column=1, pady=10, padx=10, sticky=tk.W)
 
 b1 = tk.Button(root, command=lambda: submit(), text="Submit")
-b1.grid(row=3, column=0, pady=10, padx=30, sticky=tk.W)
+b1.grid(row=4, column=0, pady=10, padx=30, sticky=tk.W)
 
 progressbar = ttk.Progressbar()
-progressbar.place(x=30, y=400, width=450)
+progressbar.place(x=30, y=450, width=450)
 
 progressbarLabel = tk.Label(root, text="")
-progressbarLabel.place(x=30, y=430, width=450)
+progressbarLabel.place(x=30, y=480, width=450)
 
 # Relative Directory
 dirname = os.path.dirname(__file__)
@@ -124,15 +132,19 @@ def download_image(card_info, save_dir, isBleed, face):
                     BackgroundLayer.paste(card, (round(xsize/2 - cardx/2), round(ysize/2 - cardy/2)), card)
                     
                     for i in range(1, int(amount) + 1):
-                        if i != 1:
+                        if i == 2:
                             image_name = image_name.replace('.png', ('_' + str(i) + '.png'))
+                        if i > 2:
+                            image_name = re.sub(r"[_]?[\d]*?\.png", ('_' + str(i) + '.png'), image_name)
                         image_path = os.path.join(save_dir, image_name)
                         BackgroundLayer.save(image_path)
                 
                 else:
                     for i in range(1, int(amount) + 1):
-                        if i != 1: 
+                        if i == 2:
                             image_name = image_name.replace('.png', ('_' + str(i) + '.png'))
+                        if i > 2:
+                            image_name = re.sub(r"[_]?[\d]*?\.png", ('_' + str(i) + '.png'), image_name)
                         image_path = os.path.join(save_dir, image_name)
                         with open(image_path, 'wb') as f:
                             f.write(response.content)
@@ -162,13 +174,29 @@ def read_card_list(decklist):
         print(f"Card list file not found at. Please check the file path.")
         return []
 
+def fetchDecklist(deck_url, deckList):
+    headers = {'user-agent': ''}
+    client = httpx.Client(headers=headers)
+    cards = []
+    try:
+        result = mtg_parser.parse_deck(deck_url, http_client=client)
+        for card in result:
+            cards.append(f"{card.quantity} {card.name} ({card.extension}) {card.number}")
+    except Exception as e:
+        print(f"Error fetching decklist from {deck_url}: {e}. You may not have a user-agent for Moxfield decklists")
+        cards = read_card_list(deckList)
+    return cards
+
 def submit():
     deckList = deckListBox.get("1.0", tk.END).splitlines()
     deckName = deckNameBox.get()
     save_pointer = os.path.join(dirname, deckName)
     save_dir = generate_directory_name(save_pointer)
     doublesided_dir = save_dir + "/doublesided"
-    cards = read_card_list(deckList)
+    if deckURLBox.get():
+        cards = fetchDecklist(deckURLBox.get(), deckList)
+    else:
+        cards = read_card_list(deckList)
     progressbar['maximum']=len(deckList)
     progressbarLabel['text']="Processing"
     c1.config(state="disabled")
@@ -177,61 +205,60 @@ def submit():
     errored = False
 
     if not cards:
-        print("No cards to process. Exiting.")
-        return
-    
-    # Loop through each card in the list and download the image
-    for card in cards:
-        if match_double(card):
-            os.makedirs(doublesided_dir, exist_ok=True)
-            download_image(card, doublesided_dir, isBleed.get(), "front")
-            download_image(card, doublesided_dir, isBleed.get(), "back")
-        else:
-            download_image(card, save_dir, isBleed.get(), "front")
-        progressbar.step()
+        print("No cards to process.")
+        progressbarLabel['text']="No cards to process."
+    else:
+        # Loop through each card in the list and download the image
+        for card in cards:
+            if match_double(card):
+                os.makedirs(doublesided_dir, exist_ok=True)
+                download_image(card, doublesided_dir, isBleed.get(), "front")
+                download_image(card, doublesided_dir, isBleed.get(), "back")
+            else:
+                download_image(card, save_dir, isBleed.get(), "front")
+            progressbar.step(1)
+            root.update()
+            sleep(0.1)
         root.update()
-        sleep(0.1)
-    progressbar.step(0.01)
-    root.update()
-    
-    if isBleed.get():
-        progressbar.config(mode="indeterminate")
-        progressbar.start(10)
-        progressbarLabel["text"]="Saving PDF's\nProgram may lag"
-        root.update()
-        imgs = []
-        for fname in os.listdir(save_dir):
-            if not fname.endswith(".png"):
-                continue
-            path = os.path.join(save_dir, fname)
-            if os.path.isdir(path):
-                continue
-            imgs.append(path)
-        with open(os.path.join(save_dir, deckName) + ".pdf", "wb") as f:
-            f.write(img2pdf.convert(imgs))
-            
-        imgs = []
-        if os.path.exists(doublesided_dir):
-            for fname in os.listdir(doublesided_dir):
+        
+        if isBleed.get():
+            progressbar.config(mode="indeterminate")
+            progressbar.start(10)
+            progressbarLabel["text"]="Saving PDF's\nProgram may lag"
+            root.update()
+            imgs = []
+            for fname in os.listdir(save_dir):
                 if not fname.endswith(".png"):
                     continue
-                path = os.path.join(doublesided_dir, fname)
+                path = os.path.join(save_dir, fname)
                 if os.path.isdir(path):
                     continue
                 imgs.append(path)
-            with open(os.path.join(doublesided_dir, deckName + "_doublesided") + ".pdf", "wb") as f:
+            with open(os.path.join(save_dir, deckName) + ".pdf", "wb") as f:
                 f.write(img2pdf.convert(imgs))
+                
+            imgs = []
+            if os.path.exists(doublesided_dir):
+                for fname in os.listdir(doublesided_dir):
+                    if not fname.endswith(".png"):
+                        continue
+                    path = os.path.join(doublesided_dir, fname)
+                    if os.path.isdir(path):
+                        continue
+                    imgs.append(path)
+                with open(os.path.join(doublesided_dir, deckName + "_doublesided") + ".pdf", "wb") as f:
+                    f.write(img2pdf.convert(imgs))
     
-    for card in cards:
-        with open(os.path.join(save_dir, "decklist") + ".txt", "a", encoding="utf-8") as f:
-            f.write(card + "\n")
+        for card in cards:
+            with open(os.path.join(save_dir, "decklist") + ".txt", "a", encoding="utf-8") as f:
+                f.write(card + "\n")
             
-    if not errored:
-        print(f"Process completed without errors\nSaved in {save_dir}")
-        progressbarLabel['text']=f"Process completed without errors\nSaved in {save_dir}"
-    else:
-        progressbarLabel['text']=f"Process completed with recorded errors\nSaved in {save_dir}"
-        print(f"Process completed with recorded errors\nSaved in {save_dir}")
+        if not errored:
+            print(f"Process completed without errors\nSaved in {save_dir}")
+            progressbarLabel['text']=f"Process completed without errors\nSaved in {save_dir}"
+        else:
+            progressbarLabel['text']=f"Process completed with recorded errors\nSaved in {save_dir}"
+            print(f"Process completed with recorded errors\nSaved in {save_dir}")
     b1.config(state="active")
     c1.config(state="active")
     progressbar.stop()
@@ -239,6 +266,5 @@ def submit():
     progressbar.step(0.01)
     root.update()
 
-    
 if __name__ == "__main__":
     root.mainloop()
