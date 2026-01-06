@@ -184,6 +184,8 @@ def fetchDecklist(deck_url, deckList):
 def submit():
     deckList = deckListBox.get("1.0", tk.END).splitlines()
     deckName = deckNameBox.get()
+    if not os.path.exists(dirname + "/Decks"):
+        os.mkdir(dirname + "/Decks")
     save_pointer = os.path.join(dirname + "/Decks", deckName)
     save_dir = generate_directory_name(save_pointer)
     doublesided_dir = save_dir + "/doublesided"
