@@ -1,5 +1,6 @@
 httpx==0.28.1
 img2pdf==0.5.1
-mtg_parser==0.0.1a48
-Pillow==11.3.0
+mtg_parser==0.0.1a50
+Pillow==12.1.0
+python-dotenv==1.2.1
 Requests==2.32.5

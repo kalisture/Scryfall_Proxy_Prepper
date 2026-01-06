@@ -12,6 +12,7 @@ import img2pdf
 from PIL import Image
 import statistics
 from io import BytesIO
+from dotenv import load_dotenv
 
 #GUI setup
 root = tk.Tk()
@@ -69,29 +70,10 @@ def generate_directory_name(name, x=0):
         else:
             x = x + 1
 
-def match_double(card_info):
-    isDouble = card_info.find('//')
-    if isDouble != -1:
-        match = re.match(r'.*\((\w+)\)\s+(\w+-*\w*)', card_info)
-        if match:
-            api_url = f"https://api.scryfall.com/cards/{match.group(1)}/{match.group(2)}"
-            try:
-                response = requests.get(api_url)
-                if response.status_code == 200:
-                    data = response.json()
-                    sleep(0.1)
-                    if data['layout'] in ['transform', 'modal_dfc']:
-                        return True
-                    return False
-            except Exception as e:
-                print(f"Error checking double face for {card_info}: {e}")
-                errored = True
-            return False
-    return False
-
-def download_image(card_info, save_dir, isBleed, face):
+def download_image(card_info, save_dir, isBleed):
     global errored
     match = re.match(r'.*\((\w+)\)\s+(\w+-*\w*)', card_info)
+    image_urls = []
     if match:
         amountR = re.match(r'(^\d+)', card_info)
         if amountR:
@@ -100,72 +82,82 @@ def download_image(card_info, save_dir, isBleed, face):
             amount = 1
         set_code = match.group(1).lower()
         card_number = match.group(2)
-        api_url = f"https://api.scryfall.com/cards/{set_code}/{card_number}?format=image&version=png&face={face}"
-        try:    
+        api_url = f"https://api.scryfall.com/cards/{set_code}/{card_number}"
+        try:
             response = requests.get(api_url)
             if response.status_code == 200:
-                
-                if face == "back":
-                    image_name = f"{set_code}_{card_number}_back.png"
+                data = response.json()
+                sleep(0.1)
+                if data['layout'] in ['transform', 'modal_dfc', 'double_faced_token']:
+                    image_urls.append(data['card_faces'][0]['image_uris']['png'])
+                    image_urls.append(data['card_faces'][1]['image_uris']['png'])
                 else:
-                    image_name = f"{set_code}_{card_number}.png"
-                
-
-                if isBleed:
-                    card = Image.open(BytesIO(response.content)).convert('RGBA')
-                    pix = card.load()
-                    colourSample1 = pix[741, 1000]
-                    colourSample3 = pix[710, 1036]
-
-                    colourSample = (round(statistics.mean((colourSample1[0], colourSample3[0]))), 
-                                    round(statistics.mean((colourSample1[1], colourSample3[1]))), 
-                                    round(statistics.mean((colourSample1[2], colourSample3[2]))),
-                                    255)
-
-                    cardx, cardy = card.size
-                    
-                    xsize = cardx + 94
-                    ysize = cardy + 94
-
-                    BackgroundLayer = Image.new('RGBA', (xsize, ysize), colourSample)
-
-                    BackgroundLayer.paste(card, (round(xsize/2 - cardx/2), round(ysize/2 - cardy/2)), card)
-                    
-                    for i in range(1, int(amount) + 1):
-                        if i == 2:
-                            image_name = image_name.replace('.png', ('_' + str(i) + '.png'))
-                        if i > 2:
-                            image_name = re.sub(r"[_]?[\d]*?\.png", ('_' + str(i) + '.png'), image_name)
-                        image_path = os.path.join(save_dir, image_name)
-                        BackgroundLayer.save(image_path)
-                
-                else:
-                    for i in range(1, int(amount) + 1):
-                        if i == 2:
-                            image_name = image_name.replace('.png', ('_' + str(i) + '.png'))
-                        if i > 2:
-                            image_name = re.sub(r"[_]?[\d]*?\.png", ('_' + str(i) + '.png'), image_name)
-                        image_path = os.path.join(save_dir, image_name)
-                        with open(image_path, 'wb') as f:
-                            f.write(response.content)
-                print(f"Downloaded: {image_name}")
-
-            else:
-                with open(os.path.join(save_dir, "errors.txt"), 'a') as f:
-                    f.write(f"Failed to download image for {card_info}. Status code: {response.status_code}\n")
-                print(f"Failed to download image for {card_info}. Status code: {response.status_code}")
-                errored = True
-
+                    image_urls.append(data['image_uris']['png'])
         except Exception as e:
+                print(f"Error searching for card info {card_info}: {e}")
+                errored = True
+        if not image_urls:
             with open(os.path.join(save_dir, "errors.txt"), 'a') as f:
-                f.write(f"Error downloading image for {card_info}: {e}\n")
-            print(f"Error downloading image for {card_info}: {e}")
+                f.write(f"Failed to find image URL for {card_info}.\n")
+            print(f"Failed to find image URL for {card_info}.")
             errored = True
-    else:
+            return
+                
+        if len(image_urls) > 1:
+            save_images(set_code, card_number, "front", image_urls[0], amount, save_dir + "/doublesided", isBleed)
+            save_images(set_code, card_number, "back", image_urls[1], amount, save_dir + "/doublesided", isBleed)
+        else:
+            save_images(set_code, card_number, "front", image_urls[0], amount, save_dir, isBleed)
+    return
+            
+            
+def save_images(set_code, card_number, face, url, amount, save_dir, isBleed):
+    global errored
+    try:    
+        response = requests.get(url)
+        if response.status_code == 200:
+    
+            if face == "back":
+                    image_name = f"{set_code}_{card_number}_back.png"
+            else:
+                image_name = f"{set_code}_{card_number}.png"
+
+            if isBleed:
+                card = Image.open(BytesIO(response.content)).convert('RGBA')
+                pix = card.load()
+                colourSample1 = pix[741, 1000]
+                colourSample3 = pix[710, 1036]
+
+                colourSample = (round(statistics.mean((colourSample1[0], colourSample3[0]))), 
+                                round(statistics.mean((colourSample1[1], colourSample3[1]))), 
+                                round(statistics.mean((colourSample1[2], colourSample3[2]))),
+                                255)
+
+                cardx, cardy = card.size
+                
+                xsize = cardx + 94
+                ysize = cardy + 94
+
+                BackgroundLayer = Image.new('RGBA', (xsize, ysize), colourSample)
+
+                BackgroundLayer.paste(card, (round(xsize/2 - cardx/2), round(ysize/2 - cardy/2)), card)
+                
+                for i in range(1, int(amount) + 1):
+                    image_path = os.path.join(save_dir, image_name.replace(set_code, (str(i) + '_' + set_code)))
+                    BackgroundLayer.save(image_path)
+            
+            else:
+                for i in range(1, int(amount) + 1):
+                    image_path = os.path.join(save_dir, image_name.replace(set_code, (str(i) + '_' + set_code)))
+                    BackgroundLayer.save(image_path)
+                    with open(image_path, 'wb') as f:
+                        f.write(response.content)
+            print(f"Printed: {image_name}")
+    except Exception as e:
         with open(os.path.join(save_dir, "errors.txt"), 'a') as f:
-            f.write(f"Invalid format for card: {card_info}\n")
-        print(f"Invalid format for card: {card_info}")
-        errored = True
+            f.write(f"Error downloading image for {card_number + " " + set_code}: {e}\n")
+        print(f"Error downloading image for {card_number + " " + set_code}: {e}")
+        errored = True   
         
 def read_card_list(decklist):
     try:
@@ -175,7 +167,9 @@ def read_card_list(decklist):
         return []
 
 def fetchDecklist(deck_url, deckList):
-    headers = {'user-agent': ''}
+    load_dotenv()
+    agent = os.getenv("USER_AGENT", '')
+    headers = {'user-agent': agent}
     client = httpx.Client(headers=headers)
     cards = []
     try:
@@ -190,7 +184,7 @@ def fetchDecklist(deck_url, deckList):
 def submit():
     deckList = deckListBox.get("1.0", tk.END).splitlines()
     deckName = deckNameBox.get()
-    save_pointer = os.path.join(dirname, deckName)
+    save_pointer = os.path.join(dirname + "/Decks", deckName)
     save_dir = generate_directory_name(save_pointer)
     doublesided_dir = save_dir + "/doublesided"
     if deckURLBox.get():
@@ -203,6 +197,7 @@ def submit():
     b1.config(state="disabled")
     global errored
     errored = False
+    os.makedirs(doublesided_dir, exist_ok=True)
 
     if not cards:
         print("No cards to process.")
@@ -210,12 +205,7 @@ def submit():
     else:
         # Loop through each card in the list and download the image
         for card in cards:
-            if match_double(card):
-                os.makedirs(doublesided_dir, exist_ok=True)
-                download_image(card, doublesided_dir, isBleed.get(), "front")
-                download_image(card, doublesided_dir, isBleed.get(), "back")
-            else:
-                download_image(card, save_dir, isBleed.get(), "front")
+            download_image(card, save_dir, isBleed.get())
             progressbar.step(1)
             root.update()
             sleep(0.1)
@@ -234,8 +224,9 @@ def submit():
                 if os.path.isdir(path):
                     continue
                 imgs.append(path)
-            with open(os.path.join(save_dir, deckName) + ".pdf", "wb") as f:
-                f.write(img2pdf.convert(imgs))
+            if imgs:
+                with open(os.path.join(save_dir, deckName) + ".pdf", "wb") as f:
+                    f.write(img2pdf.convert(imgs))
                 
             imgs = []
             if os.path.exists(doublesided_dir):
@@ -246,9 +237,10 @@ def submit():
                     if os.path.isdir(path):
                         continue
                     imgs.append(path)
-                with open(os.path.join(doublesided_dir, deckName + "_doublesided") + ".pdf", "wb") as f:
-                    f.write(img2pdf.convert(imgs))
-    
+                if imgs:
+                    with open(os.path.join(doublesided_dir, deckName + "_doublesided") + ".pdf", "wb") as f:
+                        f.write(img2pdf.convert(imgs))
+        
         for card in cards:
             with open(os.path.join(save_dir, "decklist") + ".txt", "a", encoding="utf-8") as f:
                 f.write(card + "\n")
