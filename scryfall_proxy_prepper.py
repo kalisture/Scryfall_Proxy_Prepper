@@ -227,6 +227,7 @@ def submit():
                     continue
                 imgs.append(path)
             if imgs:
+                imgs.sort()
                 with open(os.path.join(save_dir, deckName) + ".pdf", "wb") as f:
                     f.write(img2pdf.convert(imgs))
                 
@@ -240,6 +241,7 @@ def submit():
                         continue
                     imgs.append(path)
                 if imgs:
+                    imgs.sort()
                     with open(os.path.join(doublesided_dir, deckName + "_doublesided") + ".pdf", "wb") as f:
                         f.write(img2pdf.convert(imgs))
         
