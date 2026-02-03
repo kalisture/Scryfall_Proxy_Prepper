@@ -84,7 +84,7 @@ def download_image(card_info, save_dir, isBleed):
             amount = 1
         set_code = match.group(1).lower()
         card_number = match.group(2)
-        api_url = f"https://api.scryfall.com/cards/{set_code}/{card_number}"
+        api_url = f"https://api.scryfall.com/cards/{set_code.upper()}/{card_number}"
         try:
             response = requests.get(api_url)
             if response.status_code == 200:
