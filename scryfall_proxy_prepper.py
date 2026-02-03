@@ -90,7 +90,7 @@ def download_image(card_info, save_dir, isBleed):
             if response.status_code == 200:
                 data = response.json()
                 sleep(0.1)
-                if data["layout"] in ["transform", "modal_dfc", "double_faced_token"]:
+                if data["layout"] in ["transform", "modal_dfc", "double_faced_token", "reversible_card"]:
                     image_urls.append(data["card_faces"][0]["image_uris"]["png"])
                     image_urls.append(data["card_faces"][1]["image_uris"]["png"])
                 else:
