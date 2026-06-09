@@ -86,7 +86,12 @@ def download_image(card_info, save_dir, isBleed):
         card_number = match.group(2)
         api_url = f"https://api.scryfall.com/cards/{set_code.upper()}/{card_number}"
         try:
-            response = requests.get(api_url)
+            session = requests.Session()
+            session.trust_env = False
+            headers = {"User-Agent": "ScryfallProxyPrepper/1.0"}
+            print(f"Fetching: {api_url}")
+            response = session.get(api_url, headers=headers, timeout=10)
+            print(f"Status: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 sleep(0.1)
@@ -181,7 +186,6 @@ def save_images(set_code, card_number, face, url, amount, save_dir, isBleed):
                         save_dir,
                         image_name.replace(set_code, (str(i) + "_" + set_code)),
                     )
-                    BackgroundLayer.save(image_path)
                     with open(image_path, "wb") as f:
                         f.write(response.content)
             print(f"Printed: {image_name}")
