@@ -139,7 +139,11 @@ def download_image(card_info, save_dir, isBleed):
 def save_images(set_code, card_number, face, url, amount, save_dir, isBleed):
     global errored
     try:
-        response = requests.get(url)
+        headers = {
+            "User-Agent": "ScryfallProxyPrepper/1.0",
+            "Accept": "*/*"
+        }
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
 
             if face == "back":
